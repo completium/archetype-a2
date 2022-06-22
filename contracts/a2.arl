@@ -111,12 +111,15 @@ entry assertTransfers (input_list : list<address * list<address>>) {
 }
 
 entry assertTransferlist (fromTransferListId : nat, toTransferListId : nat) {
-  const tl_from ?= transferlists[fromTransferListId] : FROM_TRANSFERLIST_NOT_FOUND;
-  const tl_to   ?= transferlists[toTransferListId] : TO_TRANSFERLIST_NOT_FOUND;
-
-  do_require(tl_from.unrestricted = true, FROM_INVALID_UNRESTRICTED_STATE);
-  do_require(tl_to.unrestricted = true, TO_INVALID_UNRESTRICTED_STATE);
-  do_require(tl_from.allowedTransferlists.contains(toTransferListId) = true, TO_TRANSFERLIST_NOT_FOUND_IN_FROM);
+  constant {
+    tl_from ?is transferlists[fromTransferListId] otherwise FROM_TRANSFERLIST_NOT_FOUND;
+    tl_to   ?is transferlists[toTransferListId]   otherwise TO_TRANSFERLIST_NOT_FOUND;
+  }
+  require {
+    a2_r1: tl_from.unrestricted                                    otherwise FROM_INVALID_UNRESTRICTED_STATE;
+    a2_r2: tl_from.allowedTransferlists.contains(toTransferListId) otherwise TO_TRANSFERLIST_NOT_FOUND_IN_FROM;
+    a2_r3: tl_to.unrestricted                                      otherwise TO_INVALID_UNRESTRICTED_STATE;
+  }
 }
 
 entry updateUser (user : address, transferlistId : option<nat>) {
