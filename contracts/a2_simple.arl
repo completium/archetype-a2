@@ -1,0 +1,195 @@
+archetype a2(owner  : address, issuer : address) with metadata ""
+
+/* PAUSABLE ---------------------------------------------------------------- */
+
+variable paused : bool = false
+
+function is_not_paused() : bool {
+  do_fail_if(paused, "CONTRACT_PAUSED");
+  return true
+}
+
+entry pause() {
+  called by owner
+  require {
+    pausable_r1: is_not_paused()
+  }
+  effect {
+    paused := true
+  }
+}
+
+entry unpause() {
+  called by owner
+  require {
+    pausable_r2: paused otherwise "CONTRACT_NOT_PAUSED"
+  }
+  effect {
+    paused := false
+  }
+}
+
+/* METADATA ---------------------------------------------------------------- */
+
+entry set_metadata(k: string, d : option<bytes>) {
+  called by owner
+  require { md_r1 : is_not_paused() }
+  effect {
+    metadata.update(k, d)
+  }
+}
+
+/* OWNERSHIP TRANSFER ------------------------------------------------------- */
+
+variable owner_candidate : option<address> = none
+
+entry declare_ownership(candidate : address) {
+  called by owner
+  effect {
+    owner_candidate := some(candidate);
+  }
+}
+
+entry claim_ownership() {
+  require {
+    ownership_r1: (owner_candidate ? the = caller : false) otherwise "INVALID_CALLER"
+  }
+  effect {
+    owner := caller;
+    owner_candidate := none
+  }
+}
+
+/* ERRORS ------------------------------------------------------------------- */
+
+constant EXISTS_TRANSFERLIST        : string = "EXISTS_TRANSFERLIST"
+constant FROM_RESTRICTED            : string = "FROM_RESTRICTED"
+constant INVALID_UNRESTRICTED_STATE : string = "INVALID_UNRESTRICTED_STATE"
+constant IS_NOT_SUBSET              : string = "IS_NOT_SUBSET"
+constant ISSUER_NOT_USER            : string = "ISSUER_NOT_USER"
+constant LIST_NOT_FOUND             : string = "LIST_NOT_FOUND"
+constant TO_NOT_ALLOWED             : string = "TO_NOT_ALLOWED"
+constant TO_RESTRICTED              : string = "TO_RESTRICTED"
+constant TRANSFERLIST_NOT_FOUND     : string = "TRANSFERLIST_NOT_FOUND"
+constant USER_NOT_FOUND             : string = "USER_NOT_FOUND"
+constant USER_RESTRICTED            : string = "USER_RESTRICTED"
+
+/* STORAGE ------------------------------------------------------------------- */
+
+asset user to big_map {
+  uid : address;  // user identifier
+  lid : nat       // list identifier
+}
+
+asset transferlist to big_map {
+  tlid         : nat;
+  unrestricted : bool;
+  allowedlists : set<nat> = [];
+}
+
+/* ENTRYPOINTS -------------------------------------------------------------- */
+
+function assertReceiver(addr : address) : bool {
+  return (user[addr] ? (transferlist[the.lid] ? the.unrestricted : false) : false)
+}
+
+entry assertReceivers (addrs : list<address>) {
+  for addr in addrs do
+    if addr <> issuer then do_require(assertReceiver(addr), USER_RESTRICTED)
+  done
+}
+
+entry assertTransfers (input_list : list<address * list<address>>) {
+  for input_item in input_list do
+    const %from = input_item[0];
+    const tos   = input_item[1];
+    for %to in tos do
+      if %from = issuer then
+        do_require(assertReceiver(%to), TO_RESTRICTED)
+      else begin
+        do_require(assertReceiver(%from), FROM_RESTRICTED);
+        do_require(assertReceiver(%to),   TO_RESTRICTED);
+        const fromid       ?= user[%from]              : USER_NOT_FOUND;
+        const toid         ?= user[%to]                : USER_NOT_FOUND;
+        const tl           ?= transferlist[fromid.lid] : LIST_NOT_FOUND;
+        do_require(tl.allowedlists.contains(toid.lid), TO_NOT_ALLOWED)
+      end
+    done
+  done
+}
+
+entry assertTransferlist (transferlistId : nat, input : option<asset_value<transferlist>>) {
+  match input with
+  | some tl -> begin
+    const l ?= transferlist[transferlistId] : TRANSFERLIST_NOT_FOUND;
+    do_require(l.unrestricted = tl.unrestricted, INVALID_UNRESTRICTED_STATE);
+    for i in tl.allowedlists do
+      do_require(contains(l.allowedlists, i), IS_NOT_SUBSET)
+    done
+    end
+  | none -> do_fail_if(transferlist.contains(transferlistId), EXISTS_TRANSFERLIST)
+  end
+}
+
+entry updateUser (uaddr : address, transferlistId : option<nat>) {
+  called by owner
+  require {
+    r0: issuer <> uaddr otherwise "ISSUER_NOT_USER"
+  }
+  effect {
+    match transferlistId with
+    | some(id) -> user.add_update(uaddr, { lid = id })
+    | none     -> user.remove(uaddr)
+    end
+  }
+}
+
+function set_to_list(s : set<nat>) : list<nat> {
+  var l = make_list<nat>([]);
+  for a in s do l.prepend(a) done;
+  return l
+}
+
+record update_param {
+  up_unrestricted : bool;
+  up_disallow     : list<nat>;
+  up_allow        : set<nat>
+} as ((unrestricted, (disallowTransferlists, allowTransferlists)))
+
+entry updateTransferlist (transferlistId : nat, oup : option<(update_param)>) {
+  called by owner
+  effect {
+    match oup with
+    | some up -> begin
+      transferlist.add_update(transferlistId, {
+        unrestricted := up.up_unrestricted;
+        allowedlists -= up.up_disallow
+      });
+      //transferlist.update(tlId, { allowedlists -= up.up_disallow });
+      //for r in up.up_disallow do
+      //  transferlist.update(tlId, { allowedlists -= [r] })
+      //  //transferlist[tlId].allowedlists -= [r]
+      //done;
+      transferlist.update(transferlistId, { allowedlists += set_to_list(up.up_allow) });
+      //for a in up.up_allow do
+      //  transferlist.update(tlId, { allowedlists += [a] })
+      //  //transferlist[tlId].allowedlists += [a]
+      //done;
+      //transferlist.put({ transferlistId; ltransferlist; toto; titi})
+      //transferlist.put({ toto; titi})
+      end
+    | none -> transferlist.remove(transferlistId)
+    end
+  }
+}
+
+entry setIssuer (value : address) {
+  called by owner
+  effect {
+    issuer := value;
+  }
+}
+
+getter getUser (uaddr : address) : option<nat> {
+  return user[uaddr]?.lid
+}
