@@ -26,14 +26,9 @@ export const transferlist_value_to_json = (v : transferlist_value) => {
 
 /* assertTransfers argument ------------------------------------------------ */
 
-export interface input_list_elt {
-  _1: string,
-  _2: Array<string>
-}
-
-const input_list_to_json = (input_list : Array<input_list_elt>) => {
+const input_list_to_json = (input_list : Array<[ string, Array<string> ]>) => {
   input_list.map(x => {
-    return pair_to_json(string_to_json(x._1), x._2.map(y => {
+    return pair_to_json(string_to_json(x[0]), x[1].map(y => {
       return string_to_json(y)
     }))
   })
@@ -148,7 +143,7 @@ export class A2 {
       });
     }
   }
-  async assertTransfers(input_list : Array<input_list_elt>, params : Partial<parameters>) {
+  async assertTransfers(input_list : Array<[ string, Array<string> ]>, params : Partial<parameters>) {
     if (this.contract != undefined) {
       await this.contract.assertTransfers({
         argJsonMichelson: input_list_to_json(input_list),
