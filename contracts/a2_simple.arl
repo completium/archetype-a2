@@ -131,16 +131,13 @@ entry assertTransferlist (transferlistId : nat, input : option<asset_value<trans
   end
 }
 
-entry updateUser (uaddr : address, transferlistId : option<nat>) {
+entry updateUser (uaddr : address, transferlistId : option<asset_value<user>>) {
   called by owner
   require {
     r0: issuer <> uaddr otherwise "ISSUER_NOT_USER"
   }
   effect {
-    match transferlistId with
-    | some(id) -> user.add_update(uaddr, { lid = id })
-    | none     -> user.remove(uaddr)
-    end
+    user.put_remove(uaddr, transferlistId)
   }
 }
 
@@ -191,5 +188,9 @@ entry setIssuer (value : address) {
 }
 
 getter getUser (uaddr : address) : option<nat> {
+  return user[uaddr]?.lid
+}
+
+view get_user (uaddr : address) : option<nat> {
   return user[uaddr]?.lid
 }
