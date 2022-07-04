@@ -27,11 +27,7 @@ export const transferlist_value_to_json = (v : transferlist_value) => {
 /* assertTransfers argument ------------------------------------------------ */
 
 const input_list_to_json = (input_list : Array<[ string, Array<string> ]>) => {
-  input_list.map(x => {
-    return pair_to_json(string_to_json(x[0]), x[1].map(y => {
-      return string_to_json(y)
-    }))
-  })
+  return list_to_json(input_list, x => pair_to_json(string_to_json(x[0]), list_to_json(x[1], string_to_json)))
 }
 
 /* assertTransferlist argument --------------------------------------------- */
