@@ -141,12 +141,6 @@ entry updateUser (uaddr : address, transferlistId : option<asset_value<user>>) {
   }
 }
 
-function set_to_list(s : set<nat>) : list<nat> {
-  var l = make_list<nat>([]);
-  for a in s do l.prepend(a) done;
-  return l
-}
-
 record update_param {
   up_unrestricted : bool;
   up_disallow     : list<nat>;
@@ -162,18 +156,7 @@ entry updateTransferlist (transferlistId : nat, oup : option<(update_param)>) {
         unrestricted := up.up_unrestricted;
         allowedlists -= up.up_disallow
       });
-      //transferlist.update(tlId, { allowedlists -= up.up_disallow });
-      //for r in up.up_disallow do
-      //  transferlist.update(tlId, { allowedlists -= [r] })
-      //  //transferlist[tlId].allowedlists -= [r]
-      //done;
-      transferlist.update(transferlistId, { allowedlists += set_to_list(up.up_allow) });
-      //for a in up.up_allow do
-      //  transferlist.update(tlId, { allowedlists += [a] })
-      //  //transferlist[tlId].allowedlists += [a]
-      //done;
-      //transferlist.put({ transferlistId; ltransferlist; toto; titi})
-      //transferlist.put({ toto; titi})
+      transferlist.update(transferlistId, { allowedlists += up.up_allow });
       end
     | none -> transferlist.remove(transferlistId)
     end
