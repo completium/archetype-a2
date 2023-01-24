@@ -16,7 +16,6 @@ To be able to run the tests, you need to install the [Completium CLI](https://co
 ```
 
 To use the mockup mode, you need to have the `octez-client` installed. You can find instructions on how to do that here: https://assets.tqtezos.com/docs/setup/1-tezos-client/
-```
 
 ## How it works
 ```plantuml
