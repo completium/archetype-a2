@@ -1,6 +1,6 @@
 archetype a2(
-  owner      : address,
-  a2_storage : address
+  owner  : address,
+  users  : address
 )
 
 constant CONTRACT_NOT_PAUSED               : string = "CONTRACT_NOT_PAUSED"
@@ -22,6 +22,7 @@ constant USER_RESTRICTED                   : string = "USER_RESTRICTED"
 variable owner_candidate : option<address> = none
 
 entry declare_ownership(candidate : address) {
+  no transfer
   called by owner
   effect {
     owner_candidate := some(candidate);
@@ -29,6 +30,7 @@ entry declare_ownership(candidate : address) {
 }
 
 entry claim_ownership() {
+  no transfer
   require {
     ownership_r1: (owner_candidate ? the = caller : false) otherwise "INVALID_CALLER"
   }
@@ -48,6 +50,7 @@ function is_not_paused() : bool {
 }
 
 entry pause() {
+  no transfer
   called by owner
   require {
     pausable_r1: is_not_paused()
@@ -58,6 +61,7 @@ entry pause() {
 }
 
 entry unpause() {
+  no transfer
   called by owner
   require {
     pausable_r2: paused otherwise "CONTRACT_NOT_PAUSED"
@@ -70,6 +74,7 @@ entry unpause() {
 /* METADATA ---------------------------------------------------------------- */
 
 entry set_metadata(k: string, d : option<bytes>) {
+  no transfer
   called by owner
   require { md_r1 : is_not_paused() }
   effect {
@@ -77,9 +82,49 @@ entry set_metadata(k: string, d : option<bytes>) {
   }
 }
 
-//----------------------------------------------------------------------------
-// Whitelist contract
-//----------------------------------------------------------------------------
+/* SUPERUSERS -------------------------------------------------------------- */
+
+variable superusers : set<address> = []
+
+entry addSuperuser (su : address) {
+  no transfer
+  called by owner
+  effect {
+    superusers.add(su)
+  }
+}
+
+entry removeSuperuser (su : address) {
+  no transfer
+  called by owner
+  effect {
+    superusers.remove(su)
+  }
+}
+
+/* WHITELISTERS ------------------------------------------------------------ */
+
+asset whitelister {
+  waddr: address
+}
+
+entry addWhitelister(v : address) {
+  no transfer
+  called by owner
+  effect {
+    whitelister.add({waddr = v})
+  }
+}
+
+entry removeWhitelister(v : address) {
+  no transfer
+  called by owner
+  effect {
+    whitelister.remove(v)
+  }
+}
+
+/* WHITELIST CONTRACT ------------------------------------------------------ */
 
 record transferlist {
   unrestricted         : bool;
@@ -88,7 +133,8 @@ record transferlist {
 variable transferlists : big_map<nat, transferlist> = []
 
 function assertReceiver(addr : address) : bool {
-  return (call_view<option<nat>>(a2_storage, "getopt", addr) ? (the ? (transferlists[the] ? the.unrestricted : false) : false) : false)
+  const optv ?= call_view<option<nat>>(users, "getopt", addr) : USER_GETOPT_INTERNAL_ERROR;
+  return (optv ? (transferlists[the] ? the.unrestricted : false) : false)
 }
 
 entry assertReceivers (addrs : list<address>) {
@@ -111,29 +157,25 @@ entry assertTransfers (input_list : list<address * list<address>>) {
 }
 
 entry assertTransferlist (fromTransferListId : nat, toTransferListId : nat) {
-  constant {
-    tl_from ?is transferlists[fromTransferListId] otherwise FROM_TRANSFERLIST_NOT_FOUND;
-    tl_to   ?is transferlists[toTransferListId]   otherwise TO_TRANSFERLIST_NOT_FOUND;
-  }
-  require {
-    a2_r1: tl_from.unrestricted                                    otherwise FROM_INVALID_UNRESTRICTED_STATE;
-    a2_r2: tl_from.allowedTransferlists.contains(toTransferListId) otherwise TO_TRANSFERLIST_NOT_FOUND_IN_FROM;
-    a2_r3: tl_to.unrestricted                                      otherwise TO_INVALID_UNRESTRICTED_STATE;
-  }
+  const fr_ ?= transferlists[fromTransferListId] : FROM_TRANSFERLIST_NOT_FOUND;
+  const to_ ?= transferlists[toTransferListId] : TO_TRANSFERLIST_NOT_FOUND;
+  do_require(fr_.unrestricted, FROM_INVALID_UNRESTRICTED_STATE);
+  do_require(to_.unrestricted, TO_INVALID_UNRESTRICTED_STATE);
+  do_require(fr_.allowedTransferlists.contains(toTransferListId), TO_TRANSFERLIST_NOT_FOUND_IN_FROM);
 }
 
 entry updateUser (user : address, transferlistId : option<nat>) {
-  called by owner
+  called by owner or whitelister
   require {
     r0: is_not_paused();
   }
   effect {
-    transfer 0tz to a2_storage call update<address * option<nat>>((user, transferlistId))
+    transfer 0tz to users call update<address * option<nat>>((user, transferlistId))
   }
 }
 
 entry updateUsers (utl : list<address * option<nat>>) {
-  called by owner
+  called by owner or whitelister
   require {
     r1: is_not_paused();
   }
@@ -141,7 +183,7 @@ entry updateUsers (utl : list<address * option<nat>>) {
     for i in utl do
       var user = i[0];
       var transferlistId = i[1];
-      transfer 0tz to a2_storage call update<address * option<nat>>((user, transferlistId))
+      transfer 0tz to users call update<address * option<nat>>((user, transferlistId))
     done
   }
 }
@@ -166,7 +208,7 @@ entry updateTransferlist (
 
 getter getUser (user : address) : option<nat> {
   var res = none<nat>;
-  match call_view<option<nat>>(a2_storage, "getopt", user) with
+  match call_view<option<nat>>(users, "getopt", user) with
   | some optv -> res := optv
   | none -> fail(USER_GETOPT_INTERNAL_ERROR)
   end;
@@ -175,19 +217,55 @@ getter getUser (user : address) : option<nat> {
 
 view assertTransfer (sender : address, %from : address, %to : address) : string {
   var res : string = "";
-  const fromidopt ?= call_view<option<nat>>(a2_storage, "getopt", %from) : USER_GETOPT_INTERNAL_ERROR;
-  if (fromidopt ? (transferlists[the] ? not the.unrestricted : true) : true) then
+  var fromidopt = none<nat>;
+  var toidopt = none<nat>;
+  var is_from_restricted = false;
+  match call_view<option<nat>>(users, "getopt", %from) with
+  | some optv ->
+    fromidopt := optv;
+    match optv with
+    | some v ->
+        match transferlists[v] with
+        | some(r) -> is_from_restricted := not r.unrestricted
+        | none ->    is_from_restricted := true
+        end
+    | none   ->      is_from_restricted := true
+    end
+  | none -> fail(USER_GETOPT_INTERNAL_ERROR)
+  end;
+  if is_from_restricted then
     res := FROM_RESTRICTED
   else begin
-    const toidopt ?= call_view<option<nat>>(a2_storage, "getopt", %to) : USER_GETOPT_INTERNAL_ERROR;
-    if (toidopt ? (transferlists[the] ? not the.unrestricted : true) : true) then
+    var is_to_restricted = false;
+    match call_view<option<nat>>(users, "getopt", %to) with
+    | some optv ->
+      toidopt := optv;
+      match optv with
+      | some v ->
+          match transferlists[v] with
+          | some(r) -> is_to_restricted := not r.unrestricted
+          | none ->    is_to_restricted := true
+          end
+      | none   ->      is_to_restricted := true
+      end
+    | none -> fail(USER_GETOPT_INTERNAL_ERROR)
+    end;
+    if is_to_restricted then
       res := TO_RESTRICTED
     else begin
       const fromid ?= fromidopt : INTERNAL_ERROR;
-      const toid   ?= toidopt   : INTERNAL_ERROR;
-      const allowedlists = transferlists[fromid] ? the.allowedTransferlists : [];
-      if not allowedlists.contains(toid)
-      then res := TO_NOT_ALLOWED
+      const toid ?= toidopt : INTERNAL_ERROR;
+      if not superusers.contains(sender)
+      then begin
+        match transferlists[fromid] with
+        | some(a) -> begin
+          const allowedlists = a.allowedTransferlists;
+          if not allowedlists.contains(toid)
+          then res := TO_NOT_ALLOWED
+        end
+        | none -> fail(INTERNAL_ERROR)
+        end
+      end
     end
   end;
   return res

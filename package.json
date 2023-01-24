@@ -6,16 +6,27 @@
     "tests": "tests"
   },
   "scripts": {
-    "test": "mocha --timeout 0 --slow 99999999999999999 ./tests/*.js"
+    "test": "ts-mocha --timeout 0 --slow 99999999999999999 ./tests/*.ts",
+    "gen-binding": "completium-cli generate binding-ts _ --input-path ./contracts/ --output-path ./tests/binding/",
+    "completium_add_users": "completium-cli generate account as daniel && completium-cli generate account as eddy && completium-cli generate account as kevin && completium-cli generate account as jacky",
+    "completium_init": "completium-cli init",
+    "mockup_init": "completium-cli mockup init"
   },
   "dependencies": {
-    "@completium/completium-cli": "^0.4.3",
-    "mocha": "^9.1.2",
-    "@taquito/taquito": "^12.0.0",
-    "bignumber.js": "^9.0.2"
+    "@completium/archetype-ts-types": "^0.1.3",
+    "@completium/completium-cli": "^0.4.68",
+    "@completium/experiment-ts": "^0.1.9"
   },
   "devDependencies": {
+    "@types/expect": "^24.3.0",
     "@types/mocha": "^9.1.1",
+    "ts-mocha": "^10.0.0",
     "typescript": "^4.7.4"
+  },
+  "completium": {
+    "binding_path": "./tests/binding/",
+    "build_path": "./build/",
+    "contracts_path": "./contracts/",
+    "tests_path": "./tests/"
   }
 }
