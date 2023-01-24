@@ -137,17 +137,8 @@ map transfer_lists {
 ### Types
 | Element           | Type                                                            |
 |-------------------|-----------------------------------------------------------------|
-| $transferlists_value        | pair(unrestricted bool, allowedTransferlists set(nat))|
+| transferlists_value        | pair(unrestricted bool, allowedTransferlists set(nat))|
 
-### Deployments
-#### Mainnnet
-```
-TBD
-```
-#### Granadanet
-```
-https://better-call.dev/granadanet/KT1R23DuJRzbPc9VCio9JhcZgaPh44oPHuBA/operations
-```
 ## Test cases
 | Entrypoint                 | Test case                                                              | Expected result | Progress |
 |--------------------|------------------------------------------------------------------------|-----------------|----------|
@@ -193,10 +184,10 @@ https://better-call.dev/granadanet/KT1R23DuJRzbPc9VCio9JhcZgaPh44oPHuBA/operatio
 |                    | Assert transfers [FROM: whitelisted unrestricted, TO: not whitelisted] should fail                                         | Error: TO_RESTRICTED         | ✅ Done   |
 |                    | Assert transfers [FROM: whitelisted unrestricted, TO: not in FROM allowed list] should fail                                         | Error: TO_RESTRICTED         | ✅ Done   |
 |                    | Assert transfers [FROM: whitelisted unrestricted, TO: in FROM allowed list] should succeed                                         | Success         | ✅ Done   |
-|                    | Assert transfers [FROM: not whitelisted, TO: not whitelisted, SENDER: SUPERUSER] should fail                                         | Error: FROM_NOT_WHITELISTED         | ✅ Done   |
-|                    | Assert transfers [FROM: whitelisted, TO: not whitelisted, SENDER: SUPERUSER] should fail                                         | Error: TO_NOT_WHITELISTED         | ✅ Done   |
-|                    | Assert transfers [FROM: restricted, TO: not whitelisted, SENDER: SUPERUSER] should fail                                         | Error: TO_NOT_WHITELISTED         | ✅ Done   |
-|                    | Assert transfers [FROM: not whitelisted, TO: restricted, SENDER: SUPERUSER] should fail                                         | Error: FROM_NOT_WHITELISTED         | ✅ Done   |
+|                    | Assert transfers [FROM: not whitelisted, TO: not whitelisted, SENDER: SUPERUSER] should fail                                         | Error: FROM_RESTRICTED         | ✅ Done   |
+|                    | Assert transfers [FROM: whitelisted, TO: not whitelisted, SENDER: SUPERUSER] should fail                                         | Error: TO_RESTRICTED         | ✅ Done   |
+|                    | Assert transfers [FROM: restricted, TO: not whitelisted, SENDER: SUPERUSER] should fail                                         | Error: FROM_RESTRICTED         | ✅ Done   |
+|                    | Assert transfers [FROM: not whitelisted, TO: restricted, SENDER: SUPERUSER] should fail                                         | Error: FROM_RESTRICTED         | ✅ Done   |
 |                    | Assert transfers [FROM: restricted, TO: not in FROM allowed list, SENDER: SUPERUSER] should fail                                         | Error: FROM_RESTRICTED         | ✅ Done   |
 |                    | Assert transfers [FROM: unrestricted, TO: restricted, SENDER: SUPERUSER] should fail                                         | Error: TO_RESTRICTED         | ✅ Done   |
 |                    | Assert transfers [FROM: whitelisted unrestricted, TO: in FROM allowed list, , SENDER: SUPERUSER] should succeed                                         | Success         | ✅ Done   |
