@@ -1,5 +1,5 @@
-import { Bytes, Key, Nat, Option, Or, pair_to_mich, Signature, string_to_mich } from '@completium/archetype-ts-types'
-import { blake2b, call, expect_to_fail, get_account, set_mockup, set_mockup_now, set_quiet } from '@completium/experiment-ts'
+import { Nat, Option, string_to_mich } from '@completium/archetype-ts-types'
+import { expect_to_fail, get_account, set_mockup, set_quiet } from '@completium/experiment-ts'
 
 import assert from 'assert';
 
@@ -34,7 +34,7 @@ set_quiet(true);
 
 /* Scenarios --------------------------------------------------------------- */
 
-describe('[A2] Contracts deployment', async () => {
+describe('[A2] Contracts deployment', () => {
   it('`a2_storage` deployment should succeed', async () => {
     await a2_storage.deploy(whitelister.get_address(), { as: whitelister })
   });
@@ -46,7 +46,7 @@ describe('[A2] Contracts deployment', async () => {
   });
 });
 
-describe("[A2] Set admin", async () => {
+describe("[A2] Set admin", () => {
   it("Set admin as non admin should fail", async () => {
     await expect_to_fail(async () => {
       await a2.declare_ownership(whitelister.get_address(), { as: carl })
@@ -60,7 +60,7 @@ describe("[A2] Set admin", async () => {
   });
 });
 
-describe("[A2] Add super user", async () => {
+describe("[A2] Add super user", () => {
   it("Add super user in whitelist contract as non admin should fail", async () => {
     await expect_to_fail(async () => {
       await a2.addSuperuser(superUser.get_address(), { as: carl });
@@ -82,7 +82,7 @@ describe("[A2] Add super user", async () => {
   });
 });
 
-describe("[A2] Update user", async () => {
+describe("[A2] Update user", () => {
   it("Update a non existing user in whitelist contract as non admin should fail", async () => {
     await expect_to_fail(async () => {
       await a2.updateUser(list0User1.get_address(), Option.Some(new Nat(0)), { as: carl });
@@ -118,7 +118,7 @@ describe("[A2] Update user", async () => {
   });
 });
 
-describe("[A2] Update users", async () => {
+describe("[A2] Update users", () => {
 
   it("Update non existing users in whitelist contract as non admin should fail", async () => {
     await expect_to_fail(async () => {
@@ -145,7 +145,7 @@ describe("[A2] Update users", async () => {
   });
 });
 
-describe("[A2] Update transfer list", async () => {
+describe("[A2] Update transfer list", () => {
   it("Update non existing transfer list as non admin should fail", async () => {
     await expect_to_fail(async () => {
       await a2.updateTransferlist(new Nat(0), Option.Some<[boolean, Array<Nat>]>([true, [new Nat(0)]]), { as: carl });
@@ -197,7 +197,7 @@ describe("[A2] Update transfer list", async () => {
   });
 });
 
-describe("[A2] Remove super user", async () => {
+describe("[A2] Remove super user", () => {
 
   it("Remove super user in whitelist contract as non admin should fail", async () => {
     await expect_to_fail(async () => {
@@ -229,7 +229,7 @@ describe("[A2] Remove super user", async () => {
   });
 });
 
-describe("[A2] Assert receivers", async () => {
+describe("[A2] Assert receivers", () => {
   it("Set up users for assert receivers tests", async () => {
     await a2.updateTransferlist(new Nat(2), Option.Some<[boolean, Array<Nat>]>([false, []]), { as: whitelister });
     await a2.updateUsers([
@@ -270,7 +270,7 @@ describe("[A2] Assert receivers", async () => {
   });
 });
 
-describe("[A2] Assert transfers", async () => {
+describe("[A2] Assert transfers", () => {
   it("Assert transfers [FROM: restriced, TO: restriced] should fail", async () => {
     await expect_to_fail(async () => {
       await a2.assertTransfers([[carl.get_address(), [list2User1.get_address()]]], { as: whitelister });
@@ -358,7 +358,7 @@ describe("[A2] Assert transfers", async () => {
   });
 });
 
-describe("[A2] Assert transfer list", async () => {
+describe("[A2] Assert transfer list", () => {
   it("Assert transfer list with non existing from transfer list should fail", async () => {
     await expect_to_fail(async () => {
       await a2.assertTransferlist(new Nat(123), new Nat(1), { as: whitelister });
